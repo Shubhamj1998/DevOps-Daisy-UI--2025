@@ -1,0 +1,8 @@
+services:
+  frontend:
+    build: .
+    container_name: daisyui-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production

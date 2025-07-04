@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: daisyui-dashboard
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: daisyui-dashboard
+  template:
+    metadata:
+      labels:
+        app: daisyui-dashboard
+    spec:
+      containers:
+      - name: dashboard
+        image: daisyui-dashboard:latest
+        ports:
+        - containerPort: 3000
