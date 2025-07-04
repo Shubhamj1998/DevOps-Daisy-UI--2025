@@ -61,15 +61,7 @@ pipeline {
             }
         }
     }
-               
-          stage('Docker Pull Test') {
-            steps {
-                sh "docker rmi $DOCKER_IMAGE || true"
-                sh "docker pull $DOCKER_IMAGE"
-            }
-        }
-
-       post{
+     post{
         success{
             archiveArtifacts artifacts: '*.xml', followSymlinks: false
             build job: "Daisy-Dashboard-CD", parameters: [
