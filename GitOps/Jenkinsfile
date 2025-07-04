@@ -1,0 +1,65 @@
+pipeline {
+    agent any
+
+    environment {
+        GITOPS_REPO = 'https://github.com/Shubhamj1998/DevOps-Daisy-UI--2025/k8s.git'
+        GIT_CREDENTIALS = credentials('Github')
+        IMAGE_TAG = 'shubhamj2024/daisyui-dashboard:latest' // You can pass this dynamically
+        DEPLOY_FILE = 'k8s/*'
+        BRANCH = 'main'
+    }
+
+    stages {
+
+        stage('Checkout GitOps Repo') {
+            steps {
+                git credentialsId: "${GIT_CREDENTIALS}", url: "${GITOPS_REPO}", branch: "${BRANCH}"
+            }
+        }
+
+        stage('Update K8s Manifest') {
+            steps {
+                script {
+                    // Replace image tag in the deployment YAML
+                    sh """
+                    sed -i 's|image:.*|image: ${IMAGE_TAG}|' ${DEPLOY_FILE}
+                    """
+                }
+            }
+        }
+
+        stage('Commit and Push to GitOps Repo') {
+            steps {
+                sh '''
+                  git config user.name "Jenkins CD Bot"
+                  git config user.email "cd@jenkins.com"
+                  git add ${DEPLOY_FILE}
+                  git commit -m "CD: Update image to ${IMAGE_TAG}" || echo "No changes to commit"
+                  git push https://${GIT_CREDENTIALS_USR}:${GIT_CREDENTIALS_PSW}@github.com/Shubhamj1998/DevOps-Daisy-UI--2025/k8s.git HEAD:${BRANCH}
+                '''
+            }
+        }
+
+        stage('Trigger ArgoCD Sync') {
+            when {
+                expression { return false } // Skip if using auto-sync; set to true to trigger ArgoCD manually
+            }
+            steps {
+                sh '''
+                curl -k -X POST https://argocd-server/api/v1/applications/myapp/sync \
+                  -H "Authorization: Bearer $ARGOCD_TOKEN"
+                '''
+            }
+        }
+    }
+
+    post {
+        failure {
+            emailext(
+                subject: "CD Pipeline Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Failure in CD pipeline.\nCheck Jenkins job: ${env.BUILD_URL}",
+                to: "jadhavdshubham@gmail.com"
+            )
+        }
+    }
+}
