@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: daisyui-dashboard
+  namespace: dashboard-app
 spec:
   replicas: 2
   selector:
@@ -14,6 +15,6 @@ spec:
     spec:
       containers:
       - name: dashboard
-        image: daisyui-dashboard:latest
+        image: shubhamj2024/daisyui-dashboard:latest
         ports:
         - containerPort: 3000
