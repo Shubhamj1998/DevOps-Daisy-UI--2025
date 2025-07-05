@@ -2,10 +2,16 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = 'shubhamj2024/daisyui-dashboardv1:latest'
+        DOCKER_IMAGE = 'shubhamj2024/daisyui-dashboard:latest'
     }
 
     stages {
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main', credentialsId: 'Github', url: 'https://github.com/Shubhamj1998/DevOps-Daisy-UI--2025.git'
+            }
+        }
+
         stage('Pull Docker Image') {
             steps {
                 sh "docker pull $DOCKER_IMAGE"
@@ -15,6 +21,7 @@ pipeline {
         stage('Docker Compose Restart') {
             steps {
                 sh '''
+                    ls -al  # Debug: list current directory
                     docker-compose down
                     docker-compose up --build -d
                 '''
