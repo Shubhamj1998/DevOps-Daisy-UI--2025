@@ -30,7 +30,7 @@ pipeline {
        stage("SonarQube: Code Analysis"){
             steps{
                 script{
-                    sonarqube_analysis("Sonar","DaisyUI","DaisyUI")
+                    Sonarqube_Analysis("Sonar","DaisyUI","DaisyUI")
                 }
             }
         }
