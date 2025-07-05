@@ -1,6 +1,6 @@
 services:
   frontend:
-    build: .
+    image: shubhamj2024/daisyui-dashboard:latest
     container_name: daisyui-dashboard
     ports:
       - "3000:3000"
