@@ -1,72 +1,93 @@
-@Library('Shared') _
 pipeline {
     agent any
-    
-    environment{
-        SONAR_HOME = tool "Sonar"
-    }
-    }
-  
-    parameters {
-        string(name: 'DOCKER_IMAGE_TAG', defaultValue: '', description: 'Setting docker image for latest push')
-}
 
-   stage('Git: Code Checkout') {
+    environment {
+        DOCKER_IMAGE = 'daisyui-dashboardv1:latest'
+        REPO_URL = 'https://github.com/Shubhamj1998/DevOps-Daisy-UI--2025.git'
+        BRANCH = 'main'
+        GIT_CREDENTIALS = credentials('Github')
+        DOCKERHUB_CREDENTIALS = credentials('dockerHubCreds')
+        SONARQUBE_ENV = 'Sonar'
+    }
+
+    stages {
+        stage('Clean Workspace') {
             steps {
-                script{
-                    code_checkout(https://github.com/Shubhamj1998/DevOps-Daisy-UI--2025.git","main")
+                cleanWs()
+            }
+        }
+
+        stage('Checkout Code from Git') {
+            steps {
+                git branch: "${BRANCH}", credentialsId: "${GIT_CREDENTIALS}", url: "${REPO_URL}"
+            }
+        }
+
+        stage('Trivy File Scan') {
+            steps {
+                sh 'trivy fs --exit-code 0 --severity MEDIUM,HIGH . > trivy-report.txt'
+                archiveArtifacts artifacts: 'trivy-report.txt', fingerprint: true
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            environment {
+                scannerHome = tool 'Sonar'
+            }
+            steps {
+                withSonarQubeEnv("${SONARQUBE_ENV}") {
+                    sh '${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=YourProject -Dsonar.sources=.'
                 }
             }
         }
 
-       stage("Trivy: Filesystem scan"){
-            steps{
-                script{
-                    trivy_scan()
+        stage('SonarQube Quality Gate') {
+            steps {
+                timeout(time: 1, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
 
-       stage("SonarQube: Code Analysis"){
-            steps{
-                script{
-                    Sonarqube_Analysis("Sonar","DaisyUI","DaisyUI")
+        stage('Docker Build Image') {
+            steps {
+                sh 'docker build -t $DOCKER_IMAGE .'
+            }
+        }
+
+        stage('Docker Push Image') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerHubCreds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker push $DOCKER_IMAGE
+                    '''
                 }
             }
         }
-        
-        stage("SonarQube: Code Quality Gates"){
-            steps{
-                script{
-                    sonarqube_code_quality()
-                }
-            }
-        }
-                                  
-            stage("Docker: Build Images"){
-            steps{
-                script{
-                      {
-                            docker_build("daisyui-daashboards","${params.DOCKER_IMAGE_TAG","shubhamj2024")
-                        }     
-                }
-            }
-        }
-        
-          stage("Docker: Push to DockerHub"){
-            steps{
-                script{
-                 docker_push("daisyui-daashboards","${params.DOCKER_IMAGE_TAG}","shubhamj2024")
+
+        stage('Post Success: Notify Gmail & Trigger CD Job') {
+            steps {
+                script {
+                    emailext (
+                        subject: "CI Pipeline Success - ${env.JOB_NAME}",
+                        body: "CI pipeline completed successfully for ${env.JOB_NAME}.\nTriggered CD job.",
+                        to: 'youremail@gmail.com'
+                    )
+
+                    build job: 'CD-Deploy-Job', wait: false
                 }
             }
         }
     }
-     post{
-        success{
-            archiveArtifacts artifacts: '*.xml', followSymlinks: false
-            build job: "Daisy-Dashboard-CD", parameters: [
-                string(name: 'DOCKER_IMAGE_TAG', value: "${params.DOCKER_IMAGE_TAG}"),
-                ]
+
+    post {
+        failure {
+            emailext (
+                subject: "CI Pipeline Failed - ${env.JOB_NAME}",
+                body: "CI pipeline failed for ${env.JOB_NAME}. Please check the Jenkins logs.",
+                to: 'jadhavdshubham@gmail.com'
+            )
         }
     }
 }
