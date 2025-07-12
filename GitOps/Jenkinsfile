@@ -1,31 +1,62 @@
+@Library('Shared') _
+
 pipeline {
     agent any
 
+    parameters {
+        string(name: 'DOCKER_TAG', defaultValue: 'latest', description: 'Docker tag to deploy')
+    }
+
     environment {
-        DOCKER_IMAGE = 'shubhamj2024/daisyui-dashboard:latest'
+        DOCKER_IMAGE = "shubhamj2024/daisyui-dashboard:${params.DOCKER_TAG}"
+        KUBE_CONFIG = credentials('kubeconfig')  // Jenkins credential ID for kubeconfig
     }
 
     stages {
-        stage('Checkout Code') {
+
+        stage('Workspace Cleanup') {
             steps {
-                git branch: 'main', credentialsId: 'Github', url: 'https://github.com/Shubhamj1998/DevOps-Daisy-UI--2025.git'
+                cleanWs()
             }
         }
 
         stage('Pull Docker Image') {
             steps {
-                sh "docker pull $DOCKER_IMAGE"
+                sh "docker pull ${DOCKER_IMAGE}"
             }
         }
 
-        stage('Docker Compose Restart') {
+        stage('Kubernetes: Deploy to Cluster') {
             steps {
-                sh '''
-                    ls -al  # Debug: list current directory
-                    docker-compose down
-                    docker-compose up --build -d
-                '''
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh '''
+                    kubectl set image deployment/daisyui-dashboard dashboard=${DOCKER_IMAGE} --namespace=dashboard-app
+                    kubectl rollout status deployment/daisyui-dashboard --namespace=dashboard-app
+                    '''
+                }
             }
+        }
+    }
+
+    post {
+        success {
+            emailext(
+                subject: "✅ CD Success: ${env.JOB_NAME}",
+                body: "The CD pipeline successfully deployed ${DOCKER_IMAGE} to Kubernetes.",
+                to: 'jadhavdshubham@gmail.com'
+            )
+        }
+
+        failure {
+            emailext(
+                subject: "❌ CD Failed: ${env.JOB_NAME}",
+                body: "The CD pipeline failed during deployment.\nCheck Jenkins logs for details.",
+                to: 'jadhavdshubham@gmail.com'
+            )
+        }
+
+        always {
+            cleanWs()
         }
     }
 }
