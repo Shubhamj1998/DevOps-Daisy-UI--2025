@@ -59,15 +59,22 @@ pipeline {
                 }
             }
         }
+
+        stage("Docker: Push to DockerHub") {
+            steps {
+                script {
+                    docker_push("daisyui-dashboard", "${params.DOCKER_TAG}", "shubhamj2024") 
+                }
+            }
+        }
     }
 
- post {
-    success {
-           build job: "Daisy-Dashboard-CD", parameters: [
-            string(name: 'DOCKER_TAG', value: "${params.DOCKER_TAG}")
-        ]
-    }
-
+    post {
+        success {
+            build job: "Daisy-Dashboard-CD", parameters: [
+                string(name: 'DOCKER_TAG', value: "${params.DOCKER_TAG}")
+            ]
+        }
 
         failure {
             emailext(
